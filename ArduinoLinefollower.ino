@@ -1,73 +1,75 @@
 #include <Servo.h>
-// Rservo range(0-90):clockwise;(90-180)anticlockwise; 90 :stop
-// LServo range(0-90):clockwise;(90-180)anticlockwise; 90 :stop
-// indicator LEDs
-//const int led1=;
-//const int led2=;
-boolean flag = 0;
-boolean flag2 = 0;
+//LEDs
+//LED to indicate whether the robot has parked.
+const int parked = A0;//yellow
+//LED to indicate whether the robot has encountered a junction.
+const int junction = A4;//green
+//LED to indicate the number of occupied parking spaces encountered.
+const int occparkingspaces = A3;//blue
+//LED to indicate whether the robot has sensed a car parked at the parking space.
+const int carparked = A2;//red
+//LED to indicate whether the robot has sensed a bike parked at the parking space.
+const int bikeparked = A1;//white
+
 // IR sensors
 const int irl = 3;
 const int irr = 2;
 const int irm = 4;
-int parkingcounter;
 
-const int ledpark = 12;
-const int ledobs = 11;
+//integer to count the number of parking spaces encountered
+int parkingcounter=0;
 
-// Button222
-//const int btn=7;
-
+//Servo
 const int deg = 3;
 const int odd_dist = 25;
 const int odd_trace = odd_dist * deg;
 const int even_dist = 25;
 const int even_trace = even_dist * deg;
 const int d = 0;
-unsigned int nowmillis;
-const int oldmillis = 0;
+
 // Ultrasonic
 const int echo = 7;
 const int trig = 8;
-int us1dist;       //overall us distance
-long us1duration;  //overall us duration check
-int us2dist;       //bike check us distance
-long us2duration;  //bikcheck us duration
-const int us1thresh = 20;
-const int us2thresh = 25;
-//float ustime=0.0;
-//float usdist=0.0;
+
+//Global Variables
+
+// variable to check the presence of a bike beyond the T.
+boolean beyondt=0;
+
+// integer to check the number of parked vehicles encountered.
+int bikeno=0;
+int carno=0;
+
+//variables to determine the distance and time from the ultrasonic sensor
 float usendtime = 0.0;
 float usenddist = 0.0;
 
-//side1
+//side measurements
 const int dt11 = 25;
 const int dt12 = 14;
-//side2
-const int dt21 = 50;
-const int dt22 = 30;
-const int dt31 = 12;
-//junction variables
+
+//junction variable
 int junc_counter = 0;
+
+//variable to check if parking space is available.
 boolean obs = LOW;
 boolean obs1 = LOW;
 boolean obs2 = LOW;
+//variable to begin. begin==LOW once parked
 boolean begin = HIGH;
 Servo rs, ls;  // servo
-int pdist = 0;
+
 void setup() {
-  // put your setup code here, to run once:
+  // Setup code here, to run once:
   pinMode(13, OUTPUT);
-  //pinMode(led1,OUTPUT);
-  //pinMode(led2,OUTPUT);
   pinMode(irl, INPUT);
   pinMode(irr, INPUT);
   pinMode(irm, INPUT);
-  //pinMode(btn,INPUT_PULLUP);
-  //pinMode(echo,INPUT);
-  //pinMode(trig,OUTPUT);
-  //rs.attach(6);
-  //ls.attach(5);
+  pinMode(A0, OUTPUT);
+  pinMode(A4, OUTPUT);
+  pinMode(A3, OUTPUT);
+  pinMode(A2, OUTPUT);
+  pinMode(A1, OUTPUT);
   pinMode(trig, OUTPUT);
   pinMode(echo, INPUT);
   digitalWrite(trig, LOW);
@@ -75,28 +77,41 @@ void setup() {
 
   Serial.begin(9600);
 }
-void wait(int d);
-void forward(int d);
-void forward_move(int d);
-void back(int d);
-void right_turn(int d);
-void left_turn(int d);
-void linefollow();
-void odd_junction();
-void even_junction();
-boolean move_oddline(int sideodd);
-boolean parkalgo(int sideeven);
-boolean uscheck();
-boolean endbike();
-void parkled();
-void obsled();
 
+//implements odd_junction and even_junction functions
+boolean move();
+//function to perform waiting, stopping the robot.
+void wait(int d);
+//function to move forward. 
+void forward(int d);
+//function to move forward from a junction.
+void forward_move(int d);
+//function to move back.
+void back(int d);
+//function to take a right turn.
+void right_turn(int d);
+//function to make a left turn.
+void left_turn(int d);
+//function to follow the line path.
+void linefollow();
+//function to implement the algorithm at the odd juction.
+void odd_junction();
+//function to implement algorithm at the even junction - parking space availability checked using move_oddline function. 
+  //Parking function implemented.
+void even_junction();
+//function to move and check if the parking space is available at the odd junction line.
+boolean move_oddline(int sideodd);
+//function to park at the even junction
+boolean parkalgo(int sideeven);
+//function to check if there is a bike or a car parked at the parking space.
+boolean uscheck();
+//function to check if a bike is parked beyond the T line.
+boolean endbike();
 
 void loop() {
 
   if (begin == 1) {
     while (1)
-
     {
       move();
       wait(1000);
@@ -105,21 +120,20 @@ void loop() {
       // move_oddline(sideodd);
     }
   }
-
   else {
     rs.detach();
     ls.detach();
   }
 }
+
 boolean move() {
+  //line following using IR Sensors
   if (digitalRead(irl) == LOW && digitalRead(irm) == HIGH && digitalRead(irr) == LOW) {
     forward_move(10);
   }
-  if (digitalRead(irl) == HIGH && digitalRead(irm) == LOW && digitalRead(irr) == HIGH) {
+  else if (digitalRead(irl) == HIGH && digitalRead(irm) == LOW && digitalRead(irr) == HIGH) {
     forward(10);
-
   }
-
   else if (digitalRead(irl) == LOW && digitalRead(irm) == HIGH && digitalRead(irr) == HIGH) {
     right_turn(40);
 
@@ -133,22 +147,21 @@ boolean move() {
     left_turn(50);
 
   } else if (digitalRead(irl) == HIGH && digitalRead(irm) == HIGH && digitalRead(irr) == HIGH) {
+    //junction encountered
     wait(2000);
     junc_counter++;
+    junctionindicator();//green light
     Serial.print("Junction number : ");
     Serial.println(junc_counter);
     wait(2000);
     if (junc_counter % 2 != 0) {
       odd_junction();
-      //wait(500);
     } else {
       even_junction();
-      //wait(500);
     }
-
   } else if (digitalRead(irl) == LOW && digitalRead(irm) == LOW && digitalRead(irr) == LOW) {
+    //readjusting to follow the line
     back(40);
-
   } else {
     digitalWrite(13, HIGH);
     delay(500);
@@ -161,24 +174,33 @@ void odd_junction() {
   int sideodd, sideeven;
   sideodd = 1;
   obs1 = move_oddline(sideodd);
-  //obs1=HIGH;
-  //if(junc_counter>2)obs1=LOW;
-  //else obs1=HIGH;
   if (obs1 == LOW) {
     sideeven = 1;
+    //parks at side 1
     parkcheck1 = parkalgo(sideeven);
     if (parkcheck1 == 1) {
       Serial.println("Parked at side 1");
       wait(1000);
-      parkled();
+       parkingindicator();
+        if(beyondt==1)
+          {bikeindicator();
+          wait(500);
+          bikeindicator();
+          wait(500);          
+          }          
+        wait(2000);
+        occupiedparkingspacescounter(parkingcounter);
+        delay(2000);
+        carnumb(carno);
+        delay(2000);
+        bikenumb(bikeno);      
       exit(0);
     }
-
   } else {
+    //parks at side 2
     if (digitalRead(irl) == HIGH && digitalRead(irm) == HIGH && digitalRead(irr) == HIGH) {
       forward(200);
       sideodd = 2;
-
       obs2 = move_oddline(sideodd);
       if (obs2 == LOW) {
         sideeven = 2;
@@ -186,14 +208,25 @@ void odd_junction() {
         if (parkcheck2 == 1) {
           Serial.println("Parked at side 2");
           wait(1000);
-          parkled();
+          parkingindicator();
+          if(beyondt==1)
+          {bikeindicator();
+          wait(500);
+          bikeindicator();
+          wait(500);          
+          }
+          wait(2000);
+          occupiedparkingspacescounter(parkingcounter);
+          delay(2000);
+          carnumb(carno);
+          delay(2000);
+          bikenumb(bikeno);          
           exit(0);
         }
-
       } else {
-        forward(300);
+        forward(350);
         wait(2000);
-        right_turn(590);
+        right_turn(570);
         wait(2000);
       }
     }
@@ -206,7 +239,9 @@ void even_junction() {
   forward(200);
   wait(2000);
 }
+
 boolean move_oddline(int sideodd) {
+  //side 1
   if (sideodd == 1) {
     boolean f1 = 0;
     boolean f2 = 0;
@@ -220,29 +255,33 @@ boolean move_oddline(int sideodd) {
     forward(400);
     do {
       linefollow();
-
-
+      //checks for a car/bike in the parking space
       Tcheck = uscheck();
       if (Tcheck == HIGH) {
+        //if high, there is a car or a bike in the parking space. 
+        //car is indicated by a red LED blink
+        //bike is indicated by a white LED blink
         wait(1000);
-        parkled();
-        Serial.println("  Object on left parking");
+        Serial.println("Object on left parking");
+        parkingcounter++;
         wait(1000);
         f1 = 1;
         break;
       }
       d1 += 0.5;
       if (f1 == 1) break;
-    } while (d1 < 20);
+    } while (d1 < 22);
     wait(1000);
     if (Tcheck == LOW) {
+      //if Tcheck is low, there is no car or bike in the parking space. The parking space is available
       do {
         linefollow();
+        //now we check for a bike at the end, beyond the T.
         bikecheck = endbike();
         if (bikecheck == HIGH) {
+          //if there is a bike, the White LED will blink twice once the robot has parked in fron tof it.
           Serial.println("Obstacle beyond the T");
-          wait(1000);
-          parkled();
+          beyondt=1;
           f2 = 1;
           break;
         }
@@ -259,64 +298,55 @@ boolean move_oddline(int sideodd) {
     } while (!(digitalRead(irl) == HIGH && digitalRead(irm) == HIGH && digitalRead(irr) == HIGH));
     if (Tcheck == LOW) return LOW;
     else return HIGH;
-
   }
-
+  //side 2
   else {
     boolean Tcheck = LOW;
     boolean bikecheck = LOW;
     boolean f1 = 0;
     boolean f2 = 0;
-
+    boolean f3=0;
     float d1 = 0.0;
     do {
       linefollow();
-
     } while (!(digitalRead(irl) == HIGH && digitalRead(irm) == HIGH && digitalRead(irr) == HIGH));
     wait(1000);
-    forward(400);
+    forward(300);
     wait(1000);
     left_turn(600);
     wait(1000);
     left_turn(620);
     wait(1000);
-forward(50);    
-    wait(1000);
+    forward(100);    
+    wait(1000);  
     do {
-      linefollow();
+     linefollow();
       bikecheck = endbike();
+      // As the robot has Ultrasonic sensors on the side, on side 2, it will go until the end and make a u-turn.
+      // on this side, we will check for parking space occupied by a bike beyond the T. 
       if (bikecheck == HIGH) {
         Serial.println("Obstacle beyond the T");
-        wait(2000);
-        parkled();
-        wait(2000);
-        f2 = 1;break;
+        beyondt=1;
       }
-      d1 += 0.5;if(f2==1)break;
-    } while (d1 < 5);
-    wait(2000);
-    forward(800);
-    wait(2000);
+      d1 += 0.1;
+    } while (d1 < 4.5);   
+    d1=0.0;
     do {
       linefollow();
+      //The robot will then conduct a parking check
       Tcheck = uscheck();
       if (Tcheck == HIGH) {
         wait(1000);
-        parkled();
-        wait(2000);
-        Serial.println("   Obejct on right parking");
+        Serial.println("Object on right parking");
+        parkingcounter++;
         wait(1000);
         f1 = 1;
         break;
       }
       if (f1 == 1) break;
-
     } while (!(digitalRead(irl) == HIGH && digitalRead(irm) == HIGH && digitalRead(irr) == HIGH));
     wait(2000);
-    wait(2000); /*
-do{
-  linefollow();
-}while(!(digitalRead(irl)==HIGH && digitalRead(irm)==HIGH && digitalRead(irr)==HIGH));*/
+    wait(2000); 
     if (Tcheck == HIGH) {
       do {
         linefollow();
@@ -326,19 +356,16 @@ do{
     {
       do{
         linefollow();
-
       }while (!(digitalRead(irl) == HIGH && digitalRead(irm) == HIGH && digitalRead(irr) == HIGH));
-return LOW;
+        return LOW;
     }
   }
 }
 
-
-
 boolean parkalgo(int sideeven) {
   if (digitalRead(irl) == HIGH && digitalRead(irm) == HIGH && digitalRead(irr) == HIGH) {
+    //parking algorith starting from the odd junction.
     if (sideeven == 1)
-
     {
       forward(400);
       wait(2000);
@@ -346,12 +373,10 @@ boolean parkalgo(int sideeven) {
       wait(2000);
       do {
         linefollow();
-
-
       } while (!(digitalRead(irl) == HIGH && digitalRead(irm) == HIGH && digitalRead(irr) == HIGH));
-
-
+      //even junction encountered
       junc_counter++;
+      junctionindicator();
       Serial.print("Junction number : ");
       Serial.println(junc_counter);
       wait(1000);
@@ -359,18 +384,10 @@ boolean parkalgo(int sideeven) {
       wait(2000);
       left_turn(600);
       wait(2000);
-      //int usflag=2;
-      // usbikecheck();
-
       do {
         linefollow();
-
-
       } while (!(digitalRead(irl) == HIGH && digitalRead(irm) == HIGH && digitalRead(irr) == HIGH));
-
-
       return HIGH;
-
     } else {
       forward(400);
       wait(2000);
@@ -378,12 +395,9 @@ boolean parkalgo(int sideeven) {
       wait(2000);
       do {
         linefollow();
-
-
       } while (!(digitalRead(irl) == HIGH && digitalRead(irm) == HIGH && digitalRead(irr) == HIGH));
-
-
       junc_counter++;
+      junctionindicator();
       Serial.print("Junction number : ");
       Serial.println(junc_counter);
       wait(1000);
@@ -391,22 +405,20 @@ boolean parkalgo(int sideeven) {
       wait(2000);
       right_turn(600);
       wait(2000);
-      // usbikecheck();
-
       do {
         linefollow();
-
-
       } while (!(digitalRead(irl) == HIGH && digitalRead(irm) == HIGH && digitalRead(irr) == HIGH));
       return HIGH;
     }
+    //return global variable to its original state
     sideeven = 0;
   }
 }
+
 void forward_move(int d) {
+  //needs to perform linefollow function when not at the junction.
   do {
     linefollow();
-
   } while (!(digitalRead(irl) == HIGH && digitalRead(irm) == HIGH && digitalRead(irr) == HIGH));
   wait(1000);
 }
@@ -438,13 +450,11 @@ void right_turn(int d) {
   rs.write(100);
   delay(d);
 }
-
 void wait(int d) {
   ls.detach();
   rs.detach();
   delay(d);
 }
-
 
 void linefollow() {
 
@@ -482,29 +492,7 @@ void linefollow() {
   }
 }
 
-
-
-void parkled() {
-  digitalWrite(ledpark, HIGH);
-  delay(1000);
-  digitalWrite(ledpark, LOW);
-  delay(1000);
-}
-
-void parkingledcounter(int counter) {  //displays no. of occupied parking spaces
-  for (int i = 1; i <= counter; i++) {
-    parkled();
-  }
-}
-
-void obsled() {
-  digitalWrite(ledobs, HIGH);
-  delay(1000);
-  digitalWrite(ledobs, LOW);
-  delay(1000);
-}
-
-
+//Ultrasonic Sensor Functions
 boolean uscheck() {
   float ustime = 0;
   float usdist = 0;
@@ -514,13 +502,20 @@ boolean uscheck() {
     digitalWrite(trig, HIGH);
     delayMicroseconds(10);
     digitalWrite(trig, LOW);
-
     ustime = pulseIn(echo, HIGH);
     usdist = ustime * 0.034 / 2;
-
-    if (usdist <= 17) {
+    //if usdist between 11 and 15, bike is encountered
+    //if usdist less than 11, car is encountered  
+    if (usdist <= 16) {
+      if(usdist<11){          
+        carindicator();
+        carno++;
+      }
+      else if(usdist<=15 && usdist>=11){
+        bikeindicator();
+        bikeno++;
+      }
       //Serial.println(usdist);
-      parkingcounter++;
       return HIGH;
     } else {
       // Serial.println(usdist);
@@ -529,7 +524,6 @@ boolean uscheck() {
   }
   delay(100);
 }
-
 
 boolean endbike() {
   float ustime = 0;
@@ -542,12 +536,75 @@ boolean endbike() {
     digitalWrite(trig, LOW);
     usendtime = pulseIn(echo, HIGH);
     usenddist = usendtime * 0.034 / 2;
-    if (usenddist <= 17) {
-      //Serial.println(usenddist);
+    //only need to check for the presence of a bike. as this check is trigerred when the robot is beyond the T.
+    if (usenddist <= 15) {
       return HIGH;
     } else {
-      // Serial.println(usenddist);
       return LOW;
     }
   }
 }
+
+//LED functions
+//indicates whether parked
+void parkingindicator(){
+  digitalWrite(parked, HIGH);
+  delay(1000);
+  digitalWrite(parked, LOW);
+  delay(1000);
+}
+
+//indicates junction
+void junctionindicator(){
+  digitalWrite(junction, HIGH);
+  wait(1000);
+  digitalWrite(junction, LOW);
+  wait(1000);
+}
+
+//indicates a car parked in the parking space
+void carindicator(){
+  digitalWrite(carparked, HIGH);
+  wait(1000);
+  digitalWrite(carparked, LOW);
+  wait(1000);
+}
+
+//indicates a bike parked in the parking space
+void bikeindicator(){
+  digitalWrite(bikeparked, HIGH);
+  wait(1000);
+  digitalWrite(bikeparked, LOW);
+  wait(1000);
+}
+
+//counts the number of occupied parking spaces
+void occupiedparkingspacescounter(int a){
+  for(int i=1;i<=a;i++){
+  digitalWrite(occparkingspaces, HIGH);
+  delay(1000);
+  digitalWrite(occparkingspaces, LOW);
+  delay(1000);
+  }
+}
+
+//counts the number of cars in parking spaces encountered
+void carnumb( int no){
+  for(int i=1;i<=no;i++){
+  digitalWrite(carparked, HIGH);
+  delay(1000);
+  digitalWrite(carparked, LOW);
+  delay(1000);
+  }
+}
+
+//counts the number of bikes in parking spaces encountered (not including the one beyond the T).
+void bikenumb(int no){
+  for(int i=1;i<=no;i++){
+  digitalWrite(bikeparked, HIGH);
+  delay(1000);
+  digitalWrite(bikeparked, LOW);
+  delay(1000);
+  }
+}
+
