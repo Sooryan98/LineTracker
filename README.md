@@ -3,8 +3,10 @@ Line follower algorithms are designed to enable robots to navigate along a prede
 
 In this repository, we have implemented line following algorithm for 3 microcontrollers - Arduino UNO board, Parallax Propeller board and a Raspberry Pi board, all with different goals.
 
+# Line Follower logic:
+<img width="690" alt="image" src="https://github.com/Sooryan98/LineTracker/assets/83397160/19eb6de1-3b4c-41e9-b0ca-c15b61bf87c2">
+
 # Arduino Board:
 The goal of this project is to build a prototype vehicle and develop a parking algorithm with the help of sensors interfaced with Arduino. For the purposes of this project, we have utilized the basics of mechatronics to create a physical robot and computer science to translate the motion of the autonomous vehicle according to the developed algorithm. The vehicle is equipped with IR sensors that detect the edges of the path and obstacles, as well as ultrasonic sensors that detect nearby objects or vehicles. To move the vehicle along the path, we have used servo motors to control the movement of the wheels. By programming the motors to respond to the information gathered by the IR sensors, the vehicle can navigate the path and avoid obstacles. We have also used an Arduino microcontroller to control the vehicle's movements and to process the sensor data. Throughout the movement and parking process, the vehicle is constantly monitoring its position and adjusting its movements as necessary to follow the line path. If the vehicle goes off track or detects an obstacle, it will automatically correct its position and continue along the path. We used two normal servo motors in our autonomous parking vehicle project to control the movement of the BOE-BOT (By [Parallax](https://www.parallax.com/product/boe-bot-robot-kit-usb/)) frame. These motors provide precise control over the angle of rotation and help in maneuvering the vehicle. 
 
-## Line Follower logic:
-
+![Epic Jaban (1)](https://github.com/Sooryan98/LineTracker/assets/83397160/bc08b413-cdcd-4f7b-84b4-e4aab46f4af2)
